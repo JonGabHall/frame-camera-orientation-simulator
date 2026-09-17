@@ -1,0 +1,350 @@
+/* Esri-inspired dark blue theme: navy surfaces + blue brand accents, layered on top of Calcite's dark mode. */
+.calcite-mode-dark {
+  --calcite-color-background: #0a1420;
+  --calcite-color-foreground-1: #11212f;
+  --calcite-color-foreground-2: #16293b;
+  --calcite-color-foreground-3: #1c3349;
+  --calcite-color-surface-1: #0d1b28;
+  --calcite-color-surface-2: #11212f;
+  --calcite-color-surface-3: #16293b;
+  --calcite-color-surface-4: #1c3349;
+  --calcite-color-text-1: #eaf4ff;
+  --calcite-color-text-2: #b7d3ea;
+  --calcite-color-text-3: #82a7c4;
+  --calcite-color-border-1: #24405c;
+  --calcite-color-border-2: #2b4a68;
+  --calcite-color-border-3: #325573;
+  --calcite-color-brand: #4da6ff;
+  --calcite-color-brand-hover: #74bbff;
+  --calcite-color-brand-press: #2f8ae0;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: var(--calcite-color-background, #0a1420);
+}
+
+#appShell {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+}
+
+.header-doc-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 0.75rem;
+}
+
+.header-doc-links a {
+  text-decoration: none;
+}
+
+#controlsPanel {
+  --calcite-shell-panel-width: 320px;
+}
+
+#controls {
+  padding: 0.5rem;
+}
+
+.panel-toggle {
+  position: absolute;
+  top: 50%;
+  left: 320px;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #325573;
+  border-radius: 50%;
+  background: #16293b;
+  color: #eaf4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.panel-toggle:hover {
+  background: #1c3349;
+}
+
+/* Highlights a parameter section whose sliders/inputs changed since the last Regenerate/Reset. */
+calcite-block {
+  transition: box-shadow 0.2s ease;
+}
+
+calcite-block.param-dirty {
+  --calcite-block-heading-text-color: #b8860b;
+  --calcite-block-header-background-color: rgba(255, 193, 7, 0.15);
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.6);
+  border-radius: 4px;
+}
+
+#panels {
+  display: grid;
+  grid-template-columns: 1fr 6px 1fr;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-divider {
+  background: #1c3349;
+  touch-action: none;
+}
+
+.panel-divider:hover,
+.panel-divider:active {
+  background: #2f5c82;
+}
+
+.panel-divider--col {
+  cursor: col-resize;
+}
+
+.panel-divider--row {
+  cursor: row-resize;
+}
+
+#worldViewWrapper {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+#worldView {
+  height: 100%;
+  width: 100%;
+}
+
+.center-view-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #325573;
+  border-radius: 50%;
+  background: #16293b;
+  color: #eaf4ff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.center-view-button:hover {
+  background: #1c3349;
+}
+
+.legend-toggle-button {
+  top: 52px;
+}
+
+.legend-toggle-button.is-active {
+  background: #2f5c82;
+  border-color: #4a7fa8;
+}
+
+.scene-legend {
+  position: absolute;
+  bottom: 34px;
+  left: 12px;
+  z-index: 9;
+  display: none;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(8, 17, 28, 0.72);
+  border: 1px solid #325573;
+  color: #eaf4ff;
+  font-size: 11px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.scene-legend.is-open {
+  display: flex;
+}
+
+.legend-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8fb4d6;
+  margin-bottom: 2px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.legend-row--hidden {
+  display: none;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.legend-swatch--dashed {
+  width: 12px;
+  height: 0;
+  border-top: 2px dashed rgba(255, 255, 255, 0.55);
+  border-radius: 0;
+}
+
+.legend-swatch--frustum {
+  background: #ffd21e;
+}
+
+.legend-swatch--leverarm {
+  background: #ffffff;
+}
+
+.legend-swatch--forward {
+  background: #39ff14;
+}
+
+.legend-swatch--right {
+  background: #ff9900;
+}
+
+.legend-swatch--down {
+  background: #e930ff;
+}
+
+.legend-swatch--target {
+  background: #3fa7d6;
+}
+
+#rightColumn {
+  display: grid;
+  grid-template-rows: 1.6fr 6px 1fr;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+#imageSpaceView {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #08111c;
+  display: block;
+}
+
+#closeupViewWrapper {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+#closeupView {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #08111c;
+  display: block;
+}
+
+.closeup-nav-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #325573;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.closeup-legend-toggle {
+  position: absolute;
+  top: 38px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #325573;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.nav-toggle-btn {
+  background: #16293b;
+  color: #eaf4ff;
+  border: none;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.nav-toggle-btn:hover {
+  background: #1c3349;
+}
+
+.nav-toggle-btn--active {
+  background: #2f5c82;
+  color: #ffffff;
+}
+
+.param-row {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--calcite-color-text-2, #b7d3ea);
+  font-size: 0.8rem;
+}
+
+.info-row calcite-icon {
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.param-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.param-field calcite-slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.param-number {
+  width: 6.5rem;
+  flex-shrink: 0;
+}
+

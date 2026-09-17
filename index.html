@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frame Camera Orientation Simulator using ArcGIS</title>
+  </head>
+  <body class="calcite-mode-dark">
+    <calcite-shell id="appShell">
+      <calcite-navigation slot="header">
+        <calcite-navigation-logo
+          slot="logo"
+          heading="Frame Camera Orientation Simulator using ArcGIS"
+          description="Pitch / roll / yaw and oriented imagery teaching tool"
+          icon="camera"
+        ></calcite-navigation-logo>
+        <div slot="content-end" class="header-doc-links">
+          <a href="https://doc.esri.com/en/arcgis-pro/latest/help/data/imagery/oriented-imagery-table.html" target="_blank" rel="noopener noreferrer">
+            <calcite-button appearance="outline" scale="s" icon-start="information">Oriented Imagery schema</calcite-button>
+          </a>
+          <a href="https://doc.esri.com/en/arcgis-pro/latest/help/analysis/image-analyst/use-the-convert-video-metadata-tool.html" target="_blank" rel="noopener noreferrer">
+            <calcite-button appearance="outline" scale="s" icon-start="information">FMV schema</calcite-button>
+          </a>
+        </div>
+      </calcite-navigation>
+      <calcite-shell-panel id="controlsPanel" slot="panel-start" position="start" width="m" resizable>
+        <calcite-panel heading="Adjustable Parameters">
+          <div id="controls"></div>
+        </calcite-panel>
+      </calcite-shell-panel>
+      <button id="panelToggle" class="panel-toggle" type="button" aria-expanded="true" aria-label="Collapse parameters panel">
+        <calcite-icon icon="chevrons-left" scale="s"></calcite-icon>
+      </button>
+      <main id="panels">
+        <div id="worldViewWrapper">
+          <div id="worldView"></div>
+          <button id="centerViewButton" class="center-view-button" type="button" aria-label="Zoom to vehicle">
+            <calcite-icon icon="crosshair" scale="s"></calcite-icon>
+          </button>
+          <button id="worldViewLegendToggle" class="center-view-button legend-toggle-button" type="button" aria-label="Show legend" aria-pressed="false" aria-expanded="false" aria-controls="worldViewLegend">
+            <calcite-icon icon="legend" scale="s"></calcite-icon>
+          </button>
+          <div id="worldViewLegend" class="scene-legend" aria-label="3D scene legend">
+            <div class="legend-title">Legend</div>
+            <div class="legend-row" data-legend="frustum"><span class="legend-swatch legend-swatch--frustum"></span>Frustum / footprint</div>
+            <div class="legend-row" data-legend="previous"><span class="legend-swatch legend-swatch--dashed"></span>Previous frustum/footprint</div>
+            <div class="legend-row" data-legend="leverarm"><span class="legend-swatch legend-swatch--leverarm"></span>Lever arm</div>
+            <div class="legend-row" data-legend="axes"><span class="legend-swatch legend-swatch--forward"></span>Forward (F) &middot; Roll</div>
+            <div class="legend-row" data-legend="axes"><span class="legend-swatch legend-swatch--right"></span>Right (R) &middot; Pitch</div>
+            <div class="legend-row" data-legend="axes"><span class="legend-swatch legend-swatch--down"></span>Down (D) &middot; Heading</div>
+            <div class="legend-row" data-legend="target"><span class="legend-swatch legend-swatch--target"></span>Sample target</div>
+          </div>
+        </div>
+        <div id="panelDivider" class="panel-divider panel-divider--col" role="separator" aria-orientation="vertical" aria-label="Resize world view and image-space panels" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0"></div>
+        <div id="rightColumn">
+          <canvas id="imageSpaceView"></canvas>
+          <div id="rightRowDivider" class="panel-divider panel-divider--row" role="separator" aria-orientation="horizontal" aria-label="Resize image-space and close-up panels" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62" tabindex="0"></div>
+          <div id="closeupViewWrapper">
+            <canvas id="closeupView"></canvas>
+            <div class="closeup-nav-toggle" role="group" aria-label="Close-up drag navigation mode">
+              <button id="closeupPanMode" class="nav-toggle-btn" type="button" aria-pressed="false">Pan</button>
+              <button id="closeupRotateMode" class="nav-toggle-btn nav-toggle-btn--active" type="button" aria-pressed="true">Rotate</button>
+            </div>
+            <div class="closeup-legend-toggle" role="group" aria-label="Close-up legend">
+              <button id="closeupLegendToggle" class="nav-toggle-btn" type="button" aria-pressed="false">Legend</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </calcite-shell>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

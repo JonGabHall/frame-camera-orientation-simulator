@@ -197,8 +197,10 @@ export function createControlPanel(
     onChangeTargetShape,
   }: ControlPanelOptions,
 ): void {
-  // X/Y are set by clicking the scene (see worldView's onPositionPick) - the footprint/frustum/image-space
-  // math is translation-invariant in X/Y, so a slider here would carry no camera-orientation teaching value.
+  // X/Y are set by clicking the scene (see worldView's onPositionPick), not a slider - the sample
+  // target sits at a fixed world location (sceneObjects.ts), so moving X/Y changes whether the
+  // target falls inside the frame; that's more naturally explored by clicking a spot on the map
+  // than dragging a slider back and forth.
   const positionZ = createSliderRow({ label: "Z (meters, altitude)", min: 1, max: 3000, step: 1, value: initial.vehicle.position.z });
 
   const heading = createSliderRow({ label: "Heading (deg, 0=N)", min: 0, max: 360, step: 1, value: initial.vehicle.orientation.heading });

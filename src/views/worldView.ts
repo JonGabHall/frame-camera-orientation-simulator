@@ -616,9 +616,9 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
   }
 
   /** Draws the sample target: a colored slab per box face, or one solid-color primitive for other shapes. */
-  function renderTarget(vehiclePosition: Vec3, groundElevation: number): void {
+  function renderTarget(groundElevation: number): void {
     targetLayer.removeAll();
-    const { x: cx, y: cy } = targetGroundLocation(vehiclePosition);
+    const { x: cx, y: cy } = targetGroundLocation();
     const z0 = groundElevation;
     const z1 = groundElevation + TARGET_SIZE.height;
     const cz = (z0 + z1) / 2;
@@ -642,7 +642,7 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
   /** Whether the sample target's center currently falls within the sensor's image frame - hidden
    *  otherwise, so the user learns to reposition the vehicle when orientation changes frame it out. */
   function isTargetInFrustum(camera: ExteriorOrientation, state: FrameCameraState): boolean {
-    const { x: cx, y: cy } = targetGroundLocation(state.vehicle.position);
+    const { x: cx, y: cy } = targetGroundLocation();
     const targetCenter: Vec3 = { x: cx, y: cy, z: state.groundElevation + TARGET_SIZE.height / 2 };
     const axes = cameraAxesFromHeadingPitchRoll(camera.orientation);
     const projected = worldToImage(targetCenter, camera.position, axes, state.intrinsics);
@@ -756,7 +756,7 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
       }),
     );
 
-    renderTarget(state.vehicle.position, state.groundElevation);
+    renderTarget(state.groundElevation);
     targetLayer.visible = isTargetInFrustum(camera, state);
 
     const corners = frustumCornerPoints(camera, state);
@@ -795,7 +795,13 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
   // Starting view: straight-down (nadir), vehicle centered, with the whole initial frustum/footprint
   // visible - matches how the previous/current-state overlay is meant to be read at a glance.
   if (lastCameraPosition && lastCorners) {
-    const extentPoints = [currentState.vehicle.position, lastCameraPosition, ...lastCorners].map(toMapPoint);
+    const targetLocation = targetGroundLocation();
+    const extentPoints = [
+      currentState.vehicle.position,
+      lastCameraPosition,
+      { ...targetLocation, z: currentState.groundElevation },
+      ...lastCorners,
+    ].map(toMapPoint);
     const xs = extentPoints.map((p) => p.x);
     const ys = extentPoints.map((p) => p.y);
     const zs = extentPoints.map((p) => p.z ?? 0);

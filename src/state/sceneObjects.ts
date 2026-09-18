@@ -1,15 +1,14 @@
-import type { Vec3 } from "../geometry/frameCamera";
-
 /**
  * Shared simulated-scene definitions used by BOTH the SceneView world view and the image-space
  * viewer, so what the sensor "frames" always matches what the two panels draw.
  */
 
-/** Ground track the sample target sits at: directly below wherever the vehicle currently is. This
- *  keeps the target reachable purely by getting pitch/roll/mount right, without also needing to
- *  re-solve X/Y positioning every time the vehicle is moved or an oblique angle is tried. */
-export function targetGroundLocation(vehiclePosition: Vec3): { x: number; y: number } {
-  return { x: vehiclePosition.x, y: vehiclePosition.y };
+/** Fixed world ground location the sample target sits at, deliberately independent of the vehicle's
+ *  position: this way moving the vehicle's X/Y (click-to-position on the world view) changes whether
+ *  the target falls inside the frustum/frame, teaching X/Y reachability instead of the target just
+ *  riding along under the vehicle with every position looking the same. */
+export function targetGroundLocation(): { x: number; y: number } {
+  return { x: 0, y: 0 };
 }
 /** 3x the original {width:8,depth:8,height:12} footprint, for better legibility in both panels. */
 export const TARGET_SIZE = { width: 24, depth: 24, height: 36 };

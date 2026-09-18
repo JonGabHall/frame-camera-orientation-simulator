@@ -209,7 +209,7 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     drawSkyAndGround(camera.position, axes, frameWidth, frameHeight, offsetX, offsetY, toCanvas);
     drawGroundGrid(camera.position, axes, groundElevation, intrinsics, toCanvas);
     drawHorizonLine(camera.position, axes, intrinsics, cw, ch, toCanvas);
-    drawTargetShape(targetGroundLocation(state.vehicle.position), camera.position, axes, groundElevation, intrinsics, toCanvas);
+    drawTargetShape(targetGroundLocation(), camera.position, axes, groundElevation, intrinsics, toCanvas);
     ctx.restore();
 
     if (showPreviousOverlay && previousState) {
@@ -223,7 +223,7 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     drawPrincipalPointCrosshair(intrinsics, toCanvas);
     drawFrameBorder(offsetX, offsetY, frameWidth, frameHeight);
     drawTargetOffFrameIndicator(
-      targetGroundLocation(state.vehicle.position),
+      targetGroundLocation(),
       camera.position,
       axes,
       groundElevation,
@@ -261,7 +261,7 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     ctx.rect(offsetX, offsetY, frameWidth, frameHeight);
     ctx.clip();
     drawHorizonLine(camera.position, axes, intrinsics, cw, ch, toCanvas);
-    drawTargetShape(targetGroundLocation(previous.vehicle.position), camera.position, axes, groundElevation, intrinsics, toCanvas);
+    drawTargetShape(targetGroundLocation(), camera.position, axes, groundElevation, intrinsics, toCanvas);
     drawPrincipalPointCrosshair(intrinsics, toCanvas);
     ctx.restore();
   }
@@ -508,28 +508,6 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     const cz = (z0 + z1) / 2;
     const center: Vec3 = { x: target.x, y: target.y, z: cz };
 
-    const fillPolygon = (points: Vec3[]): void => {
-      const projected = points.map((p) => worldToImage(p, cameraPosition, axes, intrinsics));
-      if (projected.some((p) => p.behindCamera)) {
-        return;
-      }
-      ctx.beginPath();
-      projected.forEach((p, i) => {
-        const [x, y] = toCanvas(p.u, p.v);
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-      });
-      ctx.closePath();
-      ctx.fillStyle = TARGET_SINGLE_COLOR;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    };
-
     if (shape === "sphere") {
       const centerP = worldToImage(center, cameraPosition, axes, intrinsics);
       const edgeP = worldToImage(addVec(center, scaleVec(axes.right, halfWidth)), cameraPosition, axes, intrinsics);
@@ -587,15 +565,42 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
       return;
     }
 
-    // Cylinder: approximate as a rectangle silhouette (top-left, top-right, bottom-right, bottom-left).
-    const top: Vec3 = { x: target.x, y: target.y, z: z1 };
-    const bottom: Vec3 = { x: target.x, y: target.y, z: z0 };
-    fillPolygon([
-      addVec(top, scaleVec(axes.right, -halfWidth)),
-      addVec(top, scaleVec(axes.right, halfWidth)),
-      addVec(bottom, scaleVec(axes.right, halfWidth)),
-      addVec(bottom, scaleVec(axes.right, -halfWidth)),
-    ]);
+    // Cylinder: sample the top and bottom cap circles in true world X/Y (matching the upright,
+    // un-rotated cylinder drawn in the 3D scene) and take the convex hull of their projections, same
+    // approach as the cone below. A billboard rectangle (always facing the camera's "right" axis)
+    // would look right side-on but wouldn't foreshorten toward the caps' circular outline at steep
+    // (near-nadir) pitch, where a real cylinder's silhouette collapses toward a circle/ellipse.
+    const CAP_SAMPLES = 24;
+    const capPoints: Vec3[] = [];
+    for (let i = 0; i < CAP_SAMPLES; i++) {
+      const angle = (i / CAP_SAMPLES) * Math.PI * 2;
+      const dx = Math.cos(angle) * halfWidth;
+      const dy = Math.sin(angle) * halfWidth;
+      capPoints.push({ x: target.x + dx, y: target.y + dy, z: z0 });
+      capPoints.push({ x: target.x + dx, y: target.y + dy, z: z1 });
+    }
+    const cylinderProjected = capPoints.map((p) => worldToImage(p, cameraPosition, axes, intrinsics));
+    if (cylinderProjected.some((p) => p.behindCamera)) {
+      return;
+    }
+    const cylinderHull = convexHull2D(cylinderProjected.map((p) => toCanvas(p.u, p.v)));
+    if (cylinderHull.length < 3) {
+      return;
+    }
+    ctx.beginPath();
+    cylinderHull.forEach(([x, y], i) => {
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.closePath();
+    ctx.fillStyle = TARGET_SINGLE_COLOR;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
   function drawPrincipalPointCrosshair(intrinsics: FrameCameraState["intrinsics"], toCanvas: (u: number, v: number) => [number, number]): void {
@@ -619,10 +624,10 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
   }
 
   /**
-   * The target's ground track follows the vehicle (see `targetGroundLocation`), but changing
-   * pitch/heading/roll can still easily frame it out entirely. When that happens, draw an arrow at
-   * the frame edge pointing (roughly) toward it - a simple "radar" cue rather than perspective-exact,
-   * since the point may be behind the camera.
+   * The target sits at a fixed world location (see `targetGroundLocation`), so both moving the
+   * vehicle's X/Y and changing pitch/heading/roll can frame it out entirely. When that happens,
+   * draw an arrow at the frame edge pointing (roughly) toward it - a simple "radar" cue rather than
+   * perspective-exact, since the point may be behind the camera.
    */
   function drawTargetOffFrameIndicator(
     target: { x: number; y: number },

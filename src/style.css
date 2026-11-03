@@ -52,6 +52,105 @@ body {
   padding: 0.5rem;
 }
 
+.oid-record-section {
+  margin-bottom: 0.75rem;
+}
+
+.oid-record-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  padding: 8px;
+  background: var(--calcite-color-foreground-1);
+  color: var(--calcite-color-text-1);
+  border: 1px solid var(--calcite-color-border-2);
+  font: 12px/1.5 monospace;
+}
+
+.oid-record-editor {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.oid-record-editor > label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 12px;
+  color: var(--calcite-color-text-2);
+}
+
+.oid-record-editor > label[hidden] {
+  display: none;
+}
+
+.oid-service {
+  border-bottom: 1px solid var(--calcite-color-border-2);
+  padding-bottom: 0.5rem;
+  font-size: 12px;
+  color: var(--calcite-color-text-2);
+}
+
+.oid-service summary {
+  cursor: pointer;
+  color: var(--calcite-color-text-1);
+}
+
+.oid-service label {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+}
+
+.oid-service input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid var(--calcite-color-border-2);
+  background: var(--calcite-color-foreground-1);
+  color: var(--calcite-color-text-1);
+}
+
+.oid-service .oid-record-status:not(:empty) {
+  margin-top: 0.5rem;
+}
+
+.oid-record-editor input[type="file"],
+.oid-record-editor select {
+  max-width: 100%;
+  color: var(--calcite-color-text-1);
+  background: var(--calcite-color-foreground-1);
+}
+
+.oid-record-fields {
+  min-width: 0;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--calcite-color-border-2);
+  color: var(--calcite-color-text-2);
+  font-size: 12px;
+}
+
+.oid-record-fields label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.25rem 0;
+}
+
+.oid-record-fields label > span {
+  min-width: 0;
+  display: grid;
+  overflow-wrap: anywhere;
+}
+
+.oid-record-status {
+  color: var(--calcite-color-text-2);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .panel-toggle {
   position: absolute;
   top: 50%;
@@ -124,6 +223,21 @@ calcite-block.param-dirty {
 #worldView {
   height: 100%;
   width: 100%;
+}
+
+.probe-readout:not([hidden]) {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  max-width: min(320px, calc(100% - 80px));
+  padding: 8px;
+  background: rgba(8, 17, 28, 0.9);
+  color: #eaf4ff;
+  border: 1px solid #325573;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
 }
 
 .center-view-button {

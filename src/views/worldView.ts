@@ -18,6 +18,7 @@ import LineSymbol3D from "@arcgis/core/symbols/LineSymbol3D.js";
 import LineSymbol3DLayer from "@arcgis/core/symbols/LineSymbol3DLayer.js";
 import LineStylePattern3D from "@arcgis/core/symbols/patterns/LineStylePattern3D.js";
 import TextSymbol3DLayer from "@arcgis/core/symbols/TextSymbol3DLayer.js";
+import SimpleMarkerSymbol from "@arcgis/core/symbols/SimpleMarkerSymbol.js";
 
 import {
   applySensorMount,
@@ -86,6 +87,7 @@ export interface WorldView {
   setShowRotationArcs: (show: boolean) => void;
   /** Swaps the sample target's shape (box shows per-face colors; other shapes use one solid color). */
   setTargetShape: (shape: TargetShapeKind) => void;
+  setProbe: (baseline: Vec3 | null, current: Vec3 | null) => void;
   /** Zooms the camera in tight on the vehicle's current position. */
   zoomToVehicle: () => void;
   destroy: () => void;
@@ -394,6 +396,7 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
   const vehicleAxesLayer = new GraphicsLayer({ elevationInfo: { mode: "absolute-height" } });
   const sensorAxesLayer = new GraphicsLayer({ elevationInfo: { mode: "absolute-height" } });
   const rotationArcsLayer = new GraphicsLayer({ elevationInfo: { mode: "absolute-height" } });
+  const probeLayer = new GraphicsLayer({ elevationInfo: { mode: "absolute-height" } });
   // Previous-overlay layers added first so the current frustum/footprint always draws on top of them.
   map.addMany([
     previousFootprintLayer,
@@ -405,6 +408,7 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
     vehicleAxesLayer,
     sensorAxesLayer,
     rotationArcsLayer,
+    probeLayer,
     vehicleLayer,
     sensorLayer,
   ]);
@@ -851,6 +855,13 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
     setShowSensorAxes,
     setShowRotationArcs,
     setTargetShape,
+    setProbe: (baseline, current) => {
+      probeLayer.removeAll();
+      if (baseline && current) probeLayer.add(polylineGraphic(baseline, current, lineSymbol));
+      for (const [point, color] of [[baseline, "#ffffff"], [current, "#ffe55c"]] as const) {
+        if (point) probeLayer.add(new Graphic({ geometry: toMapPoint(point), symbol: new SimpleMarkerSymbol({ color, size: 12, outline: { color: "#151515", width: 1 } }) }));
+      }
+    },
     zoomToVehicle,
     destroy: () => view.destroy(),
   };

@@ -234,6 +234,19 @@ export function worldToImage(
   };
 }
 
+export function imageToGround(u: number, v: number, state: FrameCameraState): Vec3 | null {
+  const camera = applySensorMount(state.vehicle.position, state.vehicle.orientation, state.sensorMount);
+  const axes = cameraAxesFromHeadingPitchRoll(camera.orientation);
+  const { intrinsics } = state;
+  const imageX = (u - intrinsics.imageWidth / 2) * intrinsics.sensorWidth / intrinsics.imageWidth - intrinsics.principalPointX;
+  const imageY = (intrinsics.imageHeight / 2 - v) * intrinsics.sensorHeight / intrinsics.imageHeight - intrinsics.principalPointY;
+  const rotation = toRad(intrinsics.imageRotation);
+  const cameraX = imageX * Math.cos(rotation) + imageY * Math.sin(rotation);
+  const cameraY = -imageX * Math.sin(rotation) + imageY * Math.cos(rotation);
+  const direction = normalize(add(add(scale(axes.right, cameraX), scale(axes.up, cameraY)), scale(axes.forward, intrinsics.focalLength)));
+  return intersectRayWithGroundPlane(camera.position, direction, state.groundElevation);
+}
+
 const CORNER_SIGNS: Record<ImageCorner, { sx: number; sy: number }> = {
   topLeft: { sx: -1, sy: 1 },
   topRight: { sx: 1, sy: 1 },
@@ -341,6 +354,9 @@ export function headingPitchRollFromRotationMatrix(m: Mat3): FrameCameraOrientat
   const right: Vec3 = { x: m[0], y: m[3], z: m[6] };
 
   const pitch = toDeg(Math.acos(clamp(-forward.z, -1, 1)));
+  if (Math.hypot(forward.x, forward.y) < 1e-8) {
+    return { heading: toDeg(Math.atan2(-right.y, right.x)), pitch, roll: 0 };
+  }
   const heading = toDeg(Math.atan2(forward.x, forward.y));
 
   const hRad = toRad(heading);

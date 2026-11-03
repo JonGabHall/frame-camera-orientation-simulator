@@ -10,6 +10,7 @@ import { createImageSpaceViewer } from "./views/imageSpaceViewer";
 import { createCloseupView } from "./views/closeupView";
 import { observeCanvasSize } from "./ui/layout";
 import { createPanelSplitter } from "./ui/panelSplitter";
+import { imageToGround, type FrameCameraState } from "./geometry/frameCamera";
 
 esriConfig.apiKey = import.meta.env.VITE_ARCGIS_API_KEY;
 if (!import.meta.env.VITE_ARCGIS_API_KEY) {
@@ -34,6 +35,36 @@ const imageSpaceViewer = createImageSpaceViewer(imageSpaceCanvas);
 imageSpaceViewer.update(store.getState());
 observeCanvasSize(imageSpaceCanvas, () => imageSpaceViewer.redraw());
 
+let probe: { x: number; y: number; baseline: FrameCameraState } | null = null;
+const probeReadout = document.querySelector<HTMLElement>("#probeReadout")!;
+function updateProbe(state: FrameCameraState): void {
+  if (!probe) return;
+  const baseline = imageToGround(probe.x * probe.baseline.intrinsics.imageWidth, probe.y * probe.baseline.intrinsics.imageHeight, probe.baseline);
+  const current = imageToGround(probe.x * state.intrinsics.imageWidth, probe.y * state.intrinsics.imageHeight, state);
+  worldView.setProbe(baseline, current);
+  probeReadout.hidden = false;
+  if (!baseline || !current) {
+    probeReadout.textContent = "Selected ray does not reach the ground in one or both states.";
+    return;
+  }
+  const east = current.x - baseline.x;
+  const north = current.y - baseline.y;
+  probeReadout.textContent = `Image point ground shift: ${Math.hypot(east, north).toFixed(2)} m (E ${east.toFixed(2)} m, N ${north.toFixed(2)} m). White: reference; yellow: current.`;
+}
+imageSpaceCanvas.addEventListener("click", (event) => {
+  const state = store.getState();
+  const bounds = imageSpaceCanvas.getBoundingClientRect();
+  const x = (event.clientX - bounds.left) * imageSpaceCanvas.width / bounds.width;
+  const y = (event.clientY - bounds.top) * imageSpaceCanvas.height / bounds.height;
+  const scale = Math.min(imageSpaceCanvas.width / state.intrinsics.imageWidth, imageSpaceCanvas.height / state.intrinsics.imageHeight);
+  const imageX = (x - (imageSpaceCanvas.width - state.intrinsics.imageWidth * scale) / 2) / scale / state.intrinsics.imageWidth;
+  const imageY = (y - (imageSpaceCanvas.height - state.intrinsics.imageHeight * scale) / 2) / scale / state.intrinsics.imageHeight;
+  if (imageX < 0 || imageX > 1 || imageY < 0 || imageY > 1) return;
+  probe = { x: imageX, y: imageY, baseline: state };
+  imageSpaceViewer.setProbe({ x: imageX, y: imageY });
+  updateProbe(state);
+});
+
 const closeupCanvas = document.querySelector<HTMLCanvasElement>("#closeupView")!;
 const closeupView = createCloseupView(closeupCanvas);
 closeupView.update(store.getState());
@@ -48,6 +79,7 @@ store.onRegenerate((state) => {
   worldView.update(state);
   imageSpaceViewer.update(state);
   closeupView.update(state);
+  updateProbe(state);
 });
 
 const controlsContainer = document.querySelector<HTMLElement>("#controls")!;

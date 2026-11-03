@@ -166,6 +166,7 @@ export interface ImageSpaceViewer {
   setShowPreviousOverlay: (show: boolean) => void;
   /** Swaps the sample target's shape (box shows per-side colors; other shapes use one solid color). */
   setTargetShape: (shape: TargetShapeKind) => void;
+  setProbe: (point: { x: number; y: number } | null) => void;
   destroy: () => void;
 }
 
@@ -175,6 +176,7 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
   let previousState: FrameCameraState | null = null;
   let showPreviousOverlay = true;
   let targetShape: TargetShapeKind = DEFAULT_TARGET_SHAPE;
+  let probe: { x: number; y: number } | null = null;
 
   function render(): void {
     const state = currentState;
@@ -221,6 +223,14 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     }
 
     drawPrincipalPointCrosshair(intrinsics, toCanvas);
+    if (probe) {
+      const [x, y] = toCanvas(probe.x * intrinsics.imageWidth, probe.y * intrinsics.imageHeight);
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.strokeStyle = "#ffe55c";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
     drawFrameBorder(offsetX, offsetY, frameWidth, frameHeight);
     drawTargetOffFrameIndicator(
       targetGroundLocation(),
@@ -286,15 +296,6 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     ctx.beginPath();
     ctx.roundRect(x, y, width, height, 4);
     ctx.fill();
-  }
-
-  /** Draws text with a dark halo stroke behind it, so labels stay legible over any background color. */
-  function drawHaloText(text: string, x: number, y: number, color: string): void {
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(8, 17, 28, 0.85)";
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = color;
-    ctx.fillText(text, x, y);
   }
 
   /**
@@ -651,16 +652,17 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     const d = subVec(targetCenter, cameraPosition);
     const xc = dot(d, axes.right);
     const yc = dot(d, axes.up);
-    const len = Math.hypot(xc, yc) || 1;
-    const dx = xc / len;
-    const dy = -yc / len; // world "up" (+yc) points toward smaller v (screen-up)
+    const len = Math.hypot(xc, yc);
+    const dx = len > 1e-10 ? xc / len : 0;
+    const dy = len > 1e-10 ? -yc / len : -1;
 
     const cx = offsetX + frameWidth / 2;
     const cy = offsetY + frameHeight / 2;
-    const margin = 16;
-    const halfW = frameWidth / 2 - margin;
-    const halfH = frameHeight / 2 - margin;
-    const scale = Math.min(dx !== 0 ? Math.abs(halfW / dx) : Infinity, dy !== 0 ? Math.abs(halfH / dy) : Infinity);
+    const margin = Math.min(16, frameWidth / 2, frameHeight / 2);
+    const topInset = Math.min(frameHeight / 2, Math.max(margin, 46 - offsetY));
+    const horizontalLimit = dx > 0 ? offsetX + frameWidth - margin : offsetX + margin;
+    const verticalLimit = dy > 0 ? offsetY + frameHeight - margin : offsetY + topInset;
+    const scale = Math.min(dx !== 0 ? Math.abs((horizontalLimit - cx) / dx) : Infinity, dy !== 0 ? Math.abs((verticalLimit - cy) / dy) : Infinity);
     const px = cx + dx * scale;
     const py = cy + dy * scale;
     const angle = Math.atan2(dy, dx);
@@ -680,11 +682,20 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     ctx.stroke();
     ctx.restore();
 
+    ctx.save();
     ctx.font = "bold 11px sans-serif";
     ctx.textBaseline = "middle";
-    ctx.textAlign = dx >= 0 ? "left" : "right";
-    drawHaloText("target", px + dx * 16, py + dy * 16, "#5fc4ff");
-    ctx.textAlign = "left";
+    ctx.textAlign = "center";
+    const textWidth = Math.min(ctx.measureText("target").width, Math.max(0, frameWidth - 8));
+    const labelX = Math.max(offsetX + textWidth / 2 + 4, Math.min(offsetX + frameWidth - textWidth / 2 - 4, px - dx * (textWidth / 2 + 18)));
+    const labelY = Math.max(offsetY + topInset, Math.min(offsetY + frameHeight - 8, py - dy * 20));
+    drawTextBackground(labelX - textWidth / 2 - 4, labelY - 9, textWidth + 8, 18);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(8, 17, 28, 0.85)";
+    ctx.strokeText("target", labelX, labelY, textWidth);
+    ctx.fillStyle = "#5fc4ff";
+    ctx.fillText("target", labelX, labelY, textWidth);
+    ctx.restore();
   }
 
   function drawReadout(intrinsics: FrameCameraState["intrinsics"]): void {
@@ -719,6 +730,7 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     redraw: render,
     setShowPreviousOverlay,
     setTargetShape,
+    setProbe: (point) => { probe = point; render(); },
     destroy: () => {
       currentState = null;
       previousState = null;

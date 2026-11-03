@@ -1,12 +1,5 @@
-/**
- * A lightweight, schematic wireframe diagram (canvas 2D, fixed axonometric projection - no
- * basemap/imagery, no ArcGIS SceneView) illustrating the sensor mount's orientation RELATIVE TO
- * THE VEHICLE: the vehicle is drawn as a fixed/canonical reference box (it never rotates by the
- * vehicle's own live world heading/pitch/roll - that's the main world view's job), while the
- * sensor/frustum rotates live with the mount heading/pitch/roll sliders, in the classic
- * heading -> pitch -> roll order (matching Esri's OrientedImageryLayer camera model).
- */
 import {
+  applySensorMount,
   cameraAxesFromHeadingPitchRoll,
   cornerRayDirection,
   fieldOfView,
@@ -16,11 +9,6 @@ import {
   type Vec3,
 } from "../geometry/frameCamera";
 import { observeCanvasSize } from "../ui/layout";
-
-/** Canonical vehicle body-frame basis (x=right, y=forward, z=up) - fixed, not the vehicle's live world attitude. */
-const BODY_RIGHT: Vec3 = { x: 1, y: 0, z: 0 };
-const BODY_FORWARD: Vec3 = { x: 0, y: 1, z: 0 };
-const BODY_UP: Vec3 = { x: 0, y: 0, z: 1 };
 
 /** Schematic vehicle box size (diagram units, not to scale with the real aircraft). */
 const VEHICLE_BOX = { width: 2.2, depth: 4.4, height: 1.1 };
@@ -33,7 +21,7 @@ const SENSOR_AXIS_LENGTH = 2;
 const ARC_RADIUS = { heading: 1.8, pitch: 1.5, roll: 1.1 };
 /** Pitch's neutral/reference value is 90 (level with the nose), unlike heading/roll which are both 0. */
 const PITCH_BASE = 90;
-/** Fixed schematic ground plane (body-frame Z) the frustum projects onto - illustrative only, not tied to the real groundElevation slider. */
+/** Fixed schematic ground plane (world-relative Z), illustrative only. */
 const GROUND_DEPTH = -10;
 const FALLBACK_RAY_LENGTH = 9;
 /** Ground intersections farther than this (diagram units) are treated as "never reaches the ground" - keeps near-horizon mount angles from blowing out the auto-fit framing. */
@@ -77,20 +65,6 @@ function scaleVec(a: Vec3, s: number): Vec3 {
   return { x: a.x * s, y: a.y * s, z: a.z * s };
 }
 
-function boxCorners(center: Vec3, halfWidth: number, halfDepth: number, halfHeight: number): Vec3[] {
-  const corners: Vec3[] = [];
-  for (const sx of [-1, 1]) {
-    for (const sy of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        corners.push({ x: center.x + sx * halfWidth, y: center.y + sy * halfDepth, z: center.z + sz * halfHeight });
-      }
-    }
-  }
-  return corners;
-}
-
-/** Same idea as `boxCorners`, but along an arbitrary orthonormal basis (the sensor's own rotated
- *  forward/right/up axes) instead of the world axes - so the drawn box rotates with the mount. */
 function orientedBoxCorners(center: Vec3, forward: Vec3, right: Vec3, up: Vec3, halfForward: number, halfRight: number, halfUp: number): Vec3[] {
   const corners: Vec3[] = [];
   for (const sf of [-1, 1]) {
@@ -105,7 +79,6 @@ function orientedBoxCorners(center: Vec3, forward: Vec3, right: Vec3, up: Vec3, 
   return corners;
 }
 
-/** Edges connecting `boxCorners` entries that differ in exactly one axis sign (the 12 edges of a cube). */
 const BOX_EDGES: [number, number][] = [
   [0, 1], [0, 2], [0, 4], [1, 3], [1, 5], [2, 3], [2, 6], [3, 7], [4, 5], [4, 6], [5, 7], [6, 7],
 ];
@@ -144,7 +117,7 @@ const FOOTPRINT_CORNERS: ImageCorner[] = ["topLeft", "topRight", "bottomRight", 
  *  Down, pitch about Right, roll about Forward). Entries tagged with a `category` only appear while
  *  the matching guide is toggled on in the Adjustable Parameters pane; untagged entries are always drawn. */
 const LEGEND_ITEMS: { color: string; label: string; category?: "axes" | "raster" }[] = [
-  { color: "rgba(234, 244, 255, 0.7)", label: "Vehicle (fixed reference)" },
+  { color: "rgba(234, 244, 255, 0.7)", label: "Vehicle" },
   { color: "rgba(255, 90, 95, 0.85)", label: "Camera / sensor" },
   { color: "#ffffff", label: "Lever arm" },
   { color: "#ffd21e", label: "Frustum / footprint" },
@@ -202,18 +175,21 @@ export function createCloseupView(canvas: HTMLCanvasElement): CloseupView {
       return;
     }
 
-    const { sensorMount, intrinsics } = state;
+    const { vehicle, sensorMount, intrinsics } = state;
     const { leverArm, orientation: mountOrientation } = sensorMount;
-
-    const sensorPosition = addVec(
-      addVec(scaleVec(BODY_FORWARD, leverArm.forward), scaleVec(BODY_RIGHT, leverArm.right)),
-      scaleVec(BODY_UP, -leverArm.down),
+    const vehiclePosition: Vec3 = { x: 0, y: 0, z: 0 };
+    const vehicleAxes = cameraAxesFromHeadingPitchRoll(vehicle.orientation);
+    const camera = applySensorMount(vehiclePosition, vehicle.orientation, sensorMount);
+    const sensorPosition = camera.position;
+    const sensorAxes = cameraAxesFromHeadingPitchRoll(camera.orientation);
+    const bodyToWorld = (point: Vec3): Vec3 => addVec(
+      addVec(scaleVec(vehicleAxes.right, point.x), scaleVec(vehicleAxes.forward, point.y)),
+      scaleVec(vehicleAxes.up, point.z),
     );
-    const sensorAxes = cameraAxesFromHeadingPitchRoll(mountOrientation);
 
     const footprintPoints = FOOTPRINT_CORNERS.map((corner) => footprintPoint(sensorPosition, cornerRayDirection(corner, sensorAxes, intrinsics)));
 
-    const vehicleCorners = boxCorners({ x: 0, y: 0, z: 0 }, VEHICLE_BOX.width / 2, VEHICLE_BOX.depth / 2, VEHICLE_BOX.height / 2);
+    const vehicleCorners = orientedBoxCorners(vehiclePosition, vehicleAxes.forward, vehicleAxes.right, vehicleAxes.up, VEHICLE_BOX.depth / 2, VEHICLE_BOX.width / 2, VEHICLE_BOX.height / 2);
     // Camera-housing box centered exactly on sensorPosition (the same point the frustum rays
     // originate from) - a corner-anchored box read as "the dot escaped the box" instead of "inside it".
     const sensorCorners = orientedBoxCorners(
@@ -225,16 +201,16 @@ export function createCloseupView(canvas: HTMLCanvasElement): CloseupView {
       SENSOR_BOX.right / 2,
       SENSOR_BOX.up / 2,
     );
-    const forwardTip = scaleVec(BODY_FORWARD, AXIS_LENGTH);
-    const rightTip = scaleVec(BODY_RIGHT, AXIS_LENGTH);
-    const downTip = scaleVec(BODY_UP, -AXIS_LENGTH);
+    const forwardTip = scaleVec(vehicleAxes.forward, AXIS_LENGTH);
+    const rightTip = scaleVec(vehicleAxes.right, AXIS_LENGTH);
+    const downTip = scaleVec(vehicleAxes.up, -AXIS_LENGTH);
     const sensorForwardTip = addVec(sensorPosition, scaleVec(sensorAxes.forward, SENSOR_AXIS_LENGTH));
     const sensorRightTip = addVec(sensorPosition, scaleVec(sensorAxes.right, SENSOR_AXIS_LENGTH));
     const sensorDownTip = addVec(sensorPosition, scaleVec(sensorAxes.up, -SENSOR_AXIS_LENGTH));
 
-    const headingArc = sampleArc(sensorPosition, ARC_RADIUS.heading, 0, mountOrientation.heading, headingSweepPoint);
-    const pitchArc = sampleArc(sensorPosition, ARC_RADIUS.pitch, PITCH_BASE, mountOrientation.pitch, (a) => pitchSweepPoint(mountOrientation.heading, a));
-    const rollArc = sampleArc(sensorPosition, ARC_RADIUS.roll, 0, mountOrientation.roll, (a) => rollSweepPoint(mountOrientation.heading, mountOrientation.pitch, a));
+    const headingArc = sampleArc(sensorPosition, ARC_RADIUS.heading, 0, mountOrientation.heading, (angle) => bodyToWorld(headingSweepPoint(angle)));
+    const pitchArc = sampleArc(sensorPosition, ARC_RADIUS.pitch, PITCH_BASE, mountOrientation.pitch, (angle) => bodyToWorld(pitchSweepPoint(mountOrientation.heading, angle)));
+    const rollArc = sampleArc(sensorPosition, ARC_RADIUS.roll, 0, mountOrientation.roll, (angle) => bodyToWorld(rollSweepPoint(mountOrientation.heading, mountOrientation.pitch, angle)));
 
     // Auto-fit: project everything once to find the 2D bounds, then derive a scale+offset that
     // always frames the whole diagram, regardless of lever arm distance or frustum extent. Only
@@ -266,19 +242,19 @@ export function createCloseupView(canvas: HTMLCanvasElement): CloseupView {
     const leverArmLength = Math.sqrt(leverArm.forward ** 2 + leverArm.right ** 2 + leverArm.down ** 2);
 
     drawFootprint(footprintPoints, toCanvas);
-    drawLeverArm({ x: 0, y: 0, z: 0 }, sensorPosition, toCanvas, `${leverArmLength.toFixed(1)} m`);
+    drawLeverArm(vehiclePosition, sensorPosition, toCanvas, `${leverArmLength.toFixed(1)} m`);
     drawFrustum(sensorPosition, footprintPoints, toCanvas);
     drawVehicleBox(vehicleCorners, toCanvas);
     drawSensorBox(sensorCorners, toCanvas);
     ctx.font = "bold 11px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    drawHaloText("Vehicle", ...toCanvas({ x: 0, y: VEHICLE_BOX.depth / 2, z: VEHICLE_BOX.height / 2 + 0.3 }), "rgba(234, 244, 255, 0.85)");
+    drawHaloText("Vehicle", ...toCanvas(bodyToWorld({ x: 0, y: VEHICLE_BOX.depth / 2, z: VEHICLE_BOX.height / 2 + 0.3 })), "rgba(234, 244, 255, 0.85)");
     drawHaloText("Camera", ...toCanvas(addVec(sensorPosition, scaleVec(sensorAxes.up, SENSOR_BOX.up / 2 + 0.3))), "#ff9da0");
     if (showVehicleAxes) {
-      drawAxis({ x: 0, y: 0, z: 0 }, forwardTip, "#39ff14", "F", toCanvas);
-      drawAxis({ x: 0, y: 0, z: 0 }, rightTip, "#ff9900", "R", toCanvas);
-      drawAxis({ x: 0, y: 0, z: 0 }, downTip, "#e930ff", "D", toCanvas);
+      drawAxis(vehiclePosition, forwardTip, "#39ff14", "F", toCanvas);
+      drawAxis(vehiclePosition, rightTip, "#ff9900", "R", toCanvas);
+      drawAxis(vehiclePosition, downTip, "#e930ff", "D", toCanvas);
     }
     if (showSensorAxes) {
       drawAxis(sensorPosition, sensorForwardTip, "#39ff14", "F'", toCanvas, true);

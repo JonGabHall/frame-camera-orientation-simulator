@@ -5,6 +5,7 @@ import {
   computeFootprint,
   fieldOfView,
   headingPitchRollToOmegaPhiKappa,
+  imageToGround,
   omegaPhiKappaToHeadingPitchRoll,
   worldToImage,
   type FrameCameraState,
@@ -133,6 +134,33 @@ describe("worldToImage", () => {
   });
 });
 
+describe("imageToGround", () => {
+  it("round-trips an image point with rotation and principal point offsets", () => {
+    const state: FrameCameraState = {
+      vehicle: { position: { x: 10, y: 20, z: 100 }, orientation: { heading: 0, pitch: 90, roll: 0 } },
+      sensorMount: { leverArm: { forward: 0, right: 0, down: 0 }, orientation: { heading: 40, pitch: 25, roll: 10 } },
+      intrinsics: { ...BASE_INTRINSICS, principalPointX: 2, principalPointY: -1, imageRotation: 25 },
+      groundElevation: 0,
+    };
+    const point = imageToGround(450, 300, state);
+    expect(point).not.toBeNull();
+    const camera = applySensorMount(state.vehicle.position, state.vehicle.orientation, state.sensorMount);
+    const projected = worldToImage(point!, camera.position, cameraAxesFromHeadingPitchRoll(camera.orientation), state.intrinsics);
+    closeTo(projected.u, 450);
+    closeTo(projected.v, 300);
+  });
+
+  it("returns null when the image ray does not intersect the ground", () => {
+    const state: FrameCameraState = {
+      vehicle: { position: { x: 0, y: 0, z: 100 }, orientation: { heading: 0, pitch: 90, roll: 0 } },
+      sensorMount: { leverArm: { forward: 0, right: 0, down: 0 }, orientation: { heading: 0, pitch: 180, roll: 0 } },
+      intrinsics: BASE_INTRINSICS,
+      groundElevation: 0,
+    };
+    expect(imageToGround(600, 400, state)).toBeNull();
+  });
+});
+
 describe("fieldOfView", () => {
   it("computes symmetric horizontal/vertical FOV from focal length and sensor size", () => {
     const fov = fieldOfView(BASE_INTRINSICS);
@@ -177,6 +205,19 @@ describe("computeFootprint", () => {
 });
 
 describe("applySensorMount", () => {
+  it.each([0, 180])("preserves the full camera basis at pitch %s", (pitch) => {
+    const orientation = { heading: 35, pitch, roll: 20 };
+    const camera = applySensorMount({ x: 0, y: 0, z: 100 }, { heading: 0, pitch: 90, roll: 0 }, {
+      leverArm: { forward: 0, right: 0, down: 0 }, orientation,
+    });
+    const expected = cameraAxesFromHeadingPitchRoll(orientation);
+    const actual = cameraAxesFromHeadingPitchRoll(camera.orientation);
+    for (const axis of ["right", "up", "forward"] as const) {
+      closeTo(actual[axis].x, expected[axis].x);
+      closeTo(actual[axis].y, expected[axis].y);
+      closeTo(actual[axis].z, expected[axis].z);
+    }
+  });
   it("leaves the camera at the vehicle's position/orientation when the mount is neutral", () => {
     const vehiclePosition = { x: 5, y: -3, z: 100 };
     const vehicleOrientation = { heading: 30, pitch: 90, roll: 0 };

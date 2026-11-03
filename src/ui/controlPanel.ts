@@ -1,6 +1,8 @@
 import type { FrameCameraState } from "../geometry/frameCamera";
 import { DEFAULT_CAMERA_STATE } from "../state/cameraState";
+import { importOrientedImagery } from "../state/orientedImagery";
 import { DEFAULT_TARGET_SHAPE, type TargetShapeKind } from "../state/sceneObjects";
+import { createRecordEditor } from "./recordEditor";
 
 export interface ControlPanelOptions {
   initial: FrameCameraState;
@@ -100,6 +102,12 @@ function createSliderRow({ label, min, max, step, value }: SliderRowOptions): Sl
     element: row,
     getValue: () => clamp(getProp(numberInput, "value"), min, max),
     setValue: (next: number) => {
+      min = Math.min(min, next);
+      max = Math.max(max, next);
+      setProp(slider, "min", min);
+      setProp(slider, "max", max);
+      setProp(numberInput, "min", min);
+      setProp(numberInput, "max", max);
       setProp(slider, "value", next);
       setNumberInputValue(numberInput, next);
     },
@@ -256,6 +264,45 @@ export function createControlPanel(
 
   const groundElevation = createSliderRow({ label: "Ground plane elevation (meters)", min: -500, max: 500, step: 1, value: initial.groundElevation });
 
+  const recordStatus = document.createElement("div");
+  recordStatus.className = "oid-record-status";
+  recordStatus.setAttribute("role", "status");
+  const recordEditor = createRecordEditor(recordStatus);
+  const importButton = document.createElement("calcite-button");
+  importButton.textContent = "Apply record";
+  setProp(importButton, "width", "full");
+  importButton.addEventListener("click", () => {
+    try {
+      const record = recordEditor.getRecord();
+      const { state, warnings } = importOrientedImagery(record, {
+        vehicle: { position: { ...getPosition(), z: positionZ.getValue() }, orientation: { heading: heading.getValue(), pitch: pitch.getValue(), roll: roll.getValue() } },
+        sensorMount: { leverArm: { forward: leverArmForward.getValue(), right: leverArmRight.getValue(), down: leverArmDown.getValue() }, orientation: { heading: mountHeading.getValue(), pitch: mountPitch.getValue(), roll: mountRoll.getValue() } },
+        intrinsics: { focalLength: focalLength.getValue(), sensorWidth: sensorWidth.getValue(), sensorHeight: sensorHeight.getValue(), imageWidth: imageWidth.getValue(), imageHeight: imageHeight.getValue(), principalPointX: principalPointX.getValue(), principalPointY: principalPointY.getValue(), imageRotation: imageRotation.getValue() },
+        groundElevation: groundElevation.getValue(),
+      });
+      positionZ.setValue(state.vehicle.position.z);
+      heading.setValue(state.vehicle.orientation.heading);
+      pitch.setValue(state.vehicle.orientation.pitch);
+      roll.setValue(state.vehicle.orientation.roll);
+      leverArmForward.setValue(state.sensorMount.leverArm.forward);
+      leverArmRight.setValue(state.sensorMount.leverArm.right);
+      leverArmDown.setValue(state.sensorMount.leverArm.down);
+      mountHeading.setValue(state.sensorMount.orientation.heading);
+      mountPitch.setValue(state.sensorMount.orientation.pitch);
+      mountRoll.setValue(state.sensorMount.orientation.roll);
+      focalLength.setValue(state.intrinsics.focalLength);
+      sensorWidth.setValue(state.intrinsics.sensorWidth);
+      sensorHeight.setValue(state.intrinsics.sensorHeight);
+      principalPointX.setValue(state.intrinsics.principalPointX);
+      principalPointY.setValue(state.intrinsics.principalPointY);
+      imageRotation.setValue(state.intrinsics.imageRotation);
+      recordStatus.textContent = warnings.join(" ");
+      onRegenerate(state);
+    } catch (error) {
+      recordStatus.textContent = error instanceof Error ? error.message : "Unable to read the record.";
+    }
+  });
+
   const regenerateButton = document.createElement("calcite-button");
   regenerateButton.textContent = "Generate";
   setProp(regenerateButton, "width", "full");
@@ -341,7 +388,10 @@ export function createControlPanel(
     (value) => onChangeTargetShape(value as TargetShapeKind),
   );
 
+  const recordSection = createSection("Oriented imagery record", [recordEditor.element, importButton, recordStatus]);
+  recordSection.classList.add("oid-record-section");
   container.append(
+    recordSection,
     compareRow,
     positionInfo,
     leverArmInfo,

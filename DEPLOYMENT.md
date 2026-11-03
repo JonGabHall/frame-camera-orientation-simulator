@@ -1,4 +1,4 @@
-# Publishing to GitHub Pages
+# Publishing
 
 This repository is configured to publish the static production build through GitHub Pages. The
 workflow at `.github/workflows/deploy-pages.yml` builds the site and publishes `dist/` whenever
@@ -23,6 +23,25 @@ npm.cmd run build
 
 The build produces `dist/`. Vite is configured with a relative base path, so the built assets and
 local 3D models resolve correctly from a GitHub Pages project site.
+
+## Publishing to S3
+
+The GitHub Pages workflow does not update S3. To publish there separately, build locally, verify
+the intended AWS account and bucket, then upload the contents of `dist/` to your existing website
+bucket or prefix using your usual S3 deployment process. For example, with the AWS CLI configured
+for the correct account:
+
+```powershell
+npm.cmd test
+npm.cmd run build
+aws s3 sync dist/ s3://YOUR-BUCKET/YOUR-PREFIX/
+```
+
+Replace the example destination with your actual bucket and prefix. This command does not delete
+old objects. Ensure the site serves `index.html`, JavaScript modules, and model files with suitable
+content types and access permissions. If a CDN is used, refresh or invalidate cached `index.html`
+after deployment according to its configuration. Test the public site, including the record lookup
+and both local models, after publishing.
 
 ## ArcGIS API key
 

@@ -112,6 +112,24 @@ function clipSegmentToFront(a: Vec3, b: Vec3, cameraPosition: Vec3, forward: Vec
   return za > eps ? [a, clipPoint] : [clipPoint, b];
 }
 
+function clipPolygonToFront(points: Vec3[], cameraPosition: Vec3, forward: Vec3): Vec3[] {
+  const clipped: Vec3[] = [];
+  for (let index = 0; index < points.length; index++) {
+    const start = points[index];
+    const end = points[(index + 1) % points.length];
+    const startInFront = dot(subVec(start, cameraPosition), forward) > 1e-3;
+    const endInFront = dot(subVec(end, cameraPosition), forward) > 1e-3;
+    const segment = clipSegmentToFront(start, end, cameraPosition, forward);
+    if (segment && startInFront) clipped.push(segment[0]);
+    if (segment && startInFront !== endInFront) clipped.push(startInFront ? segment[1] : segment[0]);
+  }
+  return clipped;
+}
+
+function clipEdgesToFront(edges: [Vec3, Vec3][], cameraPosition: Vec3, forward: Vec3): Vec3[] {
+  return edges.flatMap(([start, end]) => clipSegmentToFront(start, end, cameraPosition, forward) ?? []);
+}
+
 function groundGridLines(center: Vec3, groundElevation: number): [Vec3, Vec3][] {
   const originX = Math.round(center.x / GRID_SPACING) * GRID_SPACING;
   const originY = Math.round(center.y / GRID_SPACING) * GRID_SPACING;
@@ -471,10 +489,9 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
       .sort((a, b) => b.dist - a.dist);
 
     for (const { face } of visibleFaces) {
-      const projected = face.corners.map((c) => worldToImage(c, cameraPosition, axes, intrinsics));
-      if (projected.some((p) => p.behindCamera)) {
-        continue; // Simplification: skip faces straddling the camera plane rather than clipping the polygon.
-      }
+      const clipped = clipPolygonToFront(face.corners, cameraPosition, axes.forward);
+      if (clipped.length < 3) continue;
+      const projected = clipped.map((point) => worldToImage(point, cameraPosition, axes, intrinsics));
       ctx.beginPath();
       projected.forEach((p, i) => {
         const [x, y] = toCanvas(p.u, p.v);
@@ -510,6 +527,41 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     const center: Vec3 = { x: target.x, y: target.y, z: cz };
 
     if (shape === "sphere") {
+      const depth = dot(subVec(center, cameraPosition), axes.forward);
+      const depthRadius = Math.hypot(axes.forward.x * halfWidth, axes.forward.y * TARGET_SIZE.depth / 2, axes.forward.z * TARGET_SIZE.height / 2);
+      if (depth <= depthRadius + 1e-3) {
+        const latitudeSamples = 12;
+        const longitudeSamples = 24;
+        const rings: Vec3[][] = [];
+        for (let latitude = 0; latitude <= latitudeSamples; latitude++) {
+          const angle = -Math.PI / 2 + latitude * Math.PI / latitudeSamples;
+          const ring: Vec3[] = [];
+          for (let longitude = 0; longitude < longitudeSamples; longitude++) {
+            const azimuth = longitude * 2 * Math.PI / longitudeSamples;
+            ring.push({ x: center.x + halfWidth * Math.cos(angle) * Math.cos(azimuth), y: center.y + TARGET_SIZE.depth / 2 * Math.cos(angle) * Math.sin(azimuth), z: center.z + TARGET_SIZE.height / 2 * Math.sin(angle) });
+          }
+          rings.push(ring);
+        }
+        const edges: [Vec3, Vec3][] = [];
+        for (let latitude = 0; latitude <= latitudeSamples; latitude++) {
+          for (let longitude = 0; longitude < longitudeSamples; longitude++) {
+            edges.push([rings[latitude][longitude], rings[latitude][(longitude + 1) % longitudeSamples]]);
+            if (latitude < latitudeSamples) edges.push([rings[latitude][longitude], rings[latitude + 1][longitude]]);
+          }
+        }
+        const projected = clipEdgesToFront(edges, cameraPosition, axes.forward).map((point) => worldToImage(point, cameraPosition, axes, intrinsics));
+        const hull = convexHull2D(projected.map((point) => toCanvas(point.u, point.v)));
+        if (hull.length < 3) return;
+        ctx.beginPath();
+        hull.forEach(([x, y], index) => index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+        ctx.closePath();
+        ctx.fillStyle = TARGET_SINGLE_COLOR;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        return;
+      }
       const centerP = worldToImage(center, cameraPosition, axes, intrinsics);
       const edgeP = worldToImage(addVec(center, scaleVec(axes.right, halfWidth)), cameraPosition, axes, intrinsics);
       if (centerP.behindCamera || edgeP.behindCamera) {
@@ -541,10 +593,8 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
         const angle = (i / BASE_SAMPLES) * Math.PI * 2;
         basePoints.push({ x: target.x + Math.cos(angle) * halfWidth, y: target.y + Math.sin(angle) * halfWidth, z: z0 });
       }
-      const projected = [apex, ...basePoints].map((p) => worldToImage(p, cameraPosition, axes, intrinsics));
-      if (projected.some((p) => p.behindCamera)) {
-        return;
-      }
+      const edges: [Vec3, Vec3][] = basePoints.flatMap((point, index) => [[point, basePoints[(index + 1) % BASE_SAMPLES]], [point, apex]]);
+      const projected = clipEdgesToFront(edges, cameraPosition, axes.forward).map((point) => worldToImage(point, cameraPosition, axes, intrinsics));
       const hull = convexHull2D(projected.map((p) => toCanvas(p.u, p.v)));
       if (hull.length < 3) {
         return;
@@ -580,10 +630,12 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
       capPoints.push({ x: target.x + dx, y: target.y + dy, z: z0 });
       capPoints.push({ x: target.x + dx, y: target.y + dy, z: z1 });
     }
-    const cylinderProjected = capPoints.map((p) => worldToImage(p, cameraPosition, axes, intrinsics));
-    if (cylinderProjected.some((p) => p.behindCamera)) {
-      return;
+    const edges: [Vec3, Vec3][] = [];
+    for (let index = 0; index < CAP_SAMPLES; index++) {
+      const next = (index + 1) % CAP_SAMPLES;
+      edges.push([capPoints[index * 2], capPoints[next * 2]], [capPoints[index * 2 + 1], capPoints[next * 2 + 1]], [capPoints[index * 2], capPoints[index * 2 + 1]]);
     }
+    const cylinderProjected = clipEdgesToFront(edges, cameraPosition, axes.forward).map((point) => worldToImage(point, cameraPosition, axes, intrinsics));
     const cylinderHull = convexHull2D(cylinderProjected.map((p) => toCanvas(p.u, p.v)));
     if (cylinderHull.length < 3) {
       return;
@@ -652,9 +704,12 @@ export function createImageSpaceViewer(canvas: HTMLCanvasElement): ImageSpaceVie
     const d = subVec(targetCenter, cameraPosition);
     const xc = dot(d, axes.right);
     const yc = dot(d, axes.up);
-    const len = Math.hypot(xc, yc);
-    const dx = len > 1e-10 ? xc / len : 0;
-    const dy = len > 1e-10 ? -yc / len : -1;
+    const rotation = intrinsics.imageRotation * Math.PI / 180;
+    const directionX = projected.behindCamera ? (xc * Math.cos(rotation) - yc * Math.sin(rotation)) * frameWidth / intrinsics.sensorWidth : (projected.u / intrinsics.imageWidth - 0.5) * frameWidth;
+    const directionY = projected.behindCamera ? -(xc * Math.sin(rotation) + yc * Math.cos(rotation)) * frameHeight / intrinsics.sensorHeight : (projected.v / intrinsics.imageHeight - 0.5) * frameHeight;
+    const len = Math.hypot(directionX, directionY);
+    const dx = len > 1e-10 ? directionX / len : 0;
+    const dy = len > 1e-10 ? directionY / len : -1;
 
     const cx = offsetX + frameWidth / 2;
     const cy = offsetY + frameHeight / 2;

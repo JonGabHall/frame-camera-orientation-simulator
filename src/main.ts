@@ -100,7 +100,7 @@ function updateWorldAxesLegend(): void {
 setLegendRowVisible("previous", true);
 updateWorldAxesLegend();
 
-createControlPanel(controlsContainer, {
+const controlPanel = createControlPanel(controlsContainer, {
   initial: store.getState(),
   getPosition: () => store.getState().vehicle.position,
   onRegenerate: (state) => store.regenerate(state),
@@ -133,6 +133,7 @@ createControlPanel(controlsContainer, {
     imageSpaceViewer.setTargetShape(shape);
   },
 });
+store.onRegenerate(controlPanel.updateGeneratedState);
 
 /** Calcite custom elements don't ship vanilla-DOM TS typings; properties are set/read dynamically. */
 const controlsPanel = document.querySelector<HTMLElement>("#controlsPanel")!;

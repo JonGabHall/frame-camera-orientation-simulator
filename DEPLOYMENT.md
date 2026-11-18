@@ -26,22 +26,25 @@ local 3D models resolve correctly from a GitHub Pages project site.
 
 ## Publishing to S3
 
-The GitHub Pages workflow does not update S3. To publish there separately, build locally, verify
-the intended AWS account and bucket, then upload the contents of `dist/` to your existing website
-bucket or prefix using your usual S3 deployment process. For example, with the AWS CLI configured
-for the correct account:
+The GitHub Pages workflow does not update S3. On Windows, run the deployment script from the
+repository root with Node.js, installed project dependencies, and the AWS CLI available:
 
 ```powershell
-npm.cmd test
-npm.cmd run build
-aws s3 sync dist/ s3://YOUR-BUCKET/YOUR-PREFIX/
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\deploy-s3.ps1 -Profile YOUR_PROFILE
 ```
 
-Replace the example destination with your actual bucket and prefix. This command does not delete
-old objects. Ensure the site serves `index.html`, JavaScript modules, and model files with suitable
-content types and access permissions. If a CDN is used, refresh or invalidate cached `index.html`
-after deployment according to its configuration. Test the public site, including the record lookup
-and both local models, after publishing.
+Replace `YOUR_PROFILE` with the AWS CLI profile for the intended account, or omit `-Profile` to use
+the normal AWS credential chain. If the profile uses IAM Identity Center, sign in with
+`aws sso login --profile YOUR_PROFILE` first. The default destination is
+`s3://esri-jhall-public/apps/frame-camera-simulator/`; pass `-Destination` with a different S3
+prefix ending in `/` to change it. Add `-WhatIf` to run the tests and build without uploading.
+
+The script runs the tests and production build, uploads assets before `index.html`, and stops if a
+step fails. It does not delete old objects or change bucket permissions. The profile needs permission
+to list the destination prefix and upload objects. Ensure the site serves `index.html`, JavaScript
+modules, and model files with suitable content types and public access. If a CDN is used, refresh or
+invalidate cached `index.html` according to its configuration. Test the public site, including record
+lookup and both local models, after publishing.
 
 ## ArcGIS API key
 

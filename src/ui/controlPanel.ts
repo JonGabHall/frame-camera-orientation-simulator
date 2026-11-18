@@ -2,6 +2,7 @@ import type { FrameCameraState } from "../geometry/frameCamera";
 import { DEFAULT_CAMERA_STATE } from "../state/cameraState";
 import { importOrientedImagery } from "../state/orientedImagery";
 import { DEFAULT_TARGET_SHAPE, type TargetShapeKind } from "../state/sceneObjects";
+import { cameraTableValues, type TableMode } from "../state/tableValues";
 import { createRecordEditor } from "./recordEditor";
 
 export interface ControlPanelOptions {
@@ -204,7 +205,7 @@ export function createControlPanel(
     onToggleRasterLabels,
     onChangeTargetShape,
   }: ControlPanelOptions,
-): void {
+): { updateGeneratedState: (state: FrameCameraState) => void } {
   // X/Y are set by clicking the scene (see worldView's onPositionPick), not a slider - the sample
   // target sits at a fixed world location (sceneObjects.ts), so moving X/Y changes whether the
   // target falls inside the frame; that's more naturally explored by clicking a spot on the map
@@ -388,10 +389,45 @@ export function createControlPanel(
     (value) => onChangeTargetShape(value as TargetShapeKind),
   );
 
-  const recordSection = createSection("Oriented imagery record", [recordEditor.element, importButton, recordStatus]);
+  const recordSection = createSection("Import Oriented Imagery Record", [recordEditor.element, importButton, recordStatus]);
   recordSection.classList.add("oid-record-section");
+  let generatedState = initial;
+  let tableMode: TableMode = "frame";
+  const tableModes = document.createElement("div");
+  tableModes.className = "table-modes";
+  tableModes.setAttribute("role", "group");
+  tableModes.setAttribute("aria-label", "Camera table schema");
+  const tableValues = document.createElement("dl");
+  tableValues.className = "table-values";
+  const modeButtons = ([ ["frame", "Frame camera"], ["oriented", "Oriented imagery"] ] as const).map(([mode, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      tableMode = mode;
+      renderTableValues();
+    });
+    tableModes.append(button);
+    return { mode, button };
+  });
+  function renderTableValues(): void {
+    for (const { mode, button } of modeButtons) button.setAttribute("aria-pressed", String(mode === tableMode));
+    tableValues.replaceChildren(...cameraTableValues(generatedState, tableMode).flatMap(({ name, value }) => {
+      const term = document.createElement("dt");
+      term.textContent = name;
+      const description = document.createElement("dd");
+      description.textContent = value;
+      return [term, description];
+    }));
+  }
+  renderTableValues();
+  const tableSummary = document.createElement("div");
+  tableSummary.className = "table-summary";
+  tableSummary.textContent = "Generated state; coordinates are local.";
+  const tableSection = createSection("Camera table values", [tableModes, tableSummary, tableValues]);
   container.append(
     recordSection,
+    tableSection,
     compareRow,
     positionInfo,
     leverArmInfo,
@@ -429,4 +465,5 @@ export function createControlPanel(
   }
   regenerateButton.addEventListener("click", clearDirtySections);
   resetButton.addEventListener("click", clearDirtySections);
+  return { updateGeneratedState: (state) => { generatedState = state; renderTableValues(); } };
 }

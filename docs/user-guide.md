@@ -20,6 +20,9 @@ vehicle. The close-up supports either pan or rotate drag modes and can show its 
 It is centered on the vehicle and uses an illustrative ground plane, rather than the actual
 vehicle altitude and ground elevation.
 
+The sample target stays at a fixed ground location in the world view as the vehicle moves. It may
+leave the image frame; the image-space arrow indicates the direction of its center when it is off-frame.
+
 ## Explore orientations
 
 1. Enable the vehicle F/R/D axes and the heading/pitch/roll rotation guides.
@@ -49,9 +52,29 @@ and Down/Heading is magenta. Sensor axes use the same colors with a dashed treat
 reference. It is intended for one-change-at-a-time experiments. Disable it when the overlay no
 longer helps, or select **Reset Parameters** to return to the default state.
 
+## Compare camera table values
+
+Open **Camera table values** and select **Frame camera** or **Oriented imagery** to compare the
+last generated camera using the corresponding field names. These values are read-only; the existing
+vehicle, mount, and camera controls remain adjustable. Pending slider edits are reflected after
+**Generate**. Map clicks, record imports, and reset also update the comparison.
+
+The frame view combines values from Esri's Frames and Cameras tables. Frame-camera focal length,
+principal point, and pixel size are shown in microns; a single pixel size is unavailable for
+non-square pixels. Omega/Phi/Kappa are not shown because the simulator's rotation convention has
+not been verified against Esri's. Oriented-imagery camera angles and height describe the resolved
+camera, not the vehicle. Height uses the simulated flat ground plane, and fields of view are derived
+from focal length and sensor dimensions. Image rotation is the simulator's approximation of that
+field, not a verified Esri viewer transform. X/Y/Z and PerspectiveX/Y/Z are local simulator
+coordinates, not georeferenced table values; neither view is an export-ready record.
+
+Local X points east, Y north, and Z up. With default settings, the vehicle is at (0, 0, 120) m and
+the sensor is 1.7 m forward and 5 m down, so the resolved sensor is at (0, 1.7, 115) m. These offsets
+rotate with the vehicle; changing the ground elevation changes camera height above ground, not Z.
+
 ## Inspect an oriented imagery record
 
-Open **Oriented imagery record** and paste JSON, CSV with a header row and one or more records,
+Open **Import Oriented Imagery Record** and paste JSON, CSV with a header row and one or more records,
 or a pipe-separated `CameraOrientation` string. You can also open a CSV or JSON file. Use actual
 field names rather than aliases. JSON can be a record, an ArcGIS feature with `attributes`, an array,
 or an Esri feature set. Select **Review records and fields**, choose a record when there is more

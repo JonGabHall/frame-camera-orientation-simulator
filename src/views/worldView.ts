@@ -25,7 +25,6 @@ import {
   cameraAxesFromHeadingPitchRoll,
   cornerRayDirection,
   intersectRayWithGroundPlane,
-  worldToImage,
   type ExteriorOrientation,
   type FrameCameraState,
   type ImageCorner,
@@ -643,22 +642,6 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
     targetLayer.add(new Graphic({ geometry: toMapPoint({ x: cx, y: cy, z: cz }), symbol }));
   }
 
-  /** Whether the sample target's center currently falls within the sensor's image frame - hidden
-   *  otherwise, so the user learns to reposition the vehicle when orientation changes frame it out. */
-  function isTargetInFrustum(camera: ExteriorOrientation, state: FrameCameraState): boolean {
-    const { x: cx, y: cy } = targetGroundLocation();
-    const targetCenter: Vec3 = { x: cx, y: cy, z: state.groundElevation + TARGET_SIZE.height / 2 };
-    const axes = cameraAxesFromHeadingPitchRoll(camera.orientation);
-    const projected = worldToImage(targetCenter, camera.position, axes, state.intrinsics);
-    return (
-      !projected.behindCamera &&
-      projected.u >= 0 &&
-      projected.u <= state.intrinsics.imageWidth &&
-      projected.v >= 0 &&
-      projected.v <= state.intrinsics.imageHeight
-    );
-  }
-
   function render(state: FrameCameraState): void {
     currentState = state;
 
@@ -761,7 +744,6 @@ export function createWorldView(container: HTMLDivElement, initialState: FrameCa
     );
 
     renderTarget(state.groundElevation);
-    targetLayer.visible = isTargetInFrustum(camera, state);
 
     const corners = frustumCornerPoints(camera, state);
 

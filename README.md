@@ -111,6 +111,6 @@ npm.cmd run build
 ```
 
 The production site is built into `dist/`; the source files cannot be deployed directly as a static
-site. Pushing `main` triggers the configured GitHub Pages workflow, but does not update S3. For
-local S3 uploads using `deploy-s3.ps1`, prerequisites, and hosting details, see
+site. Pushing `main` triggers the configured GitHub Pages and Meridian workflows, but does not
+update S3. For local S3 uploads using `deploy-s3.ps1`, prerequisites, and hosting details, see
 [DEPLOYMENT.md](DEPLOYMENT.md).

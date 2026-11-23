@@ -28,6 +28,15 @@ The build produces `dist/`. Vite is configured with a relative base path, so the
 local 3D models resolve correctly from a GitHub Pages project site or S3 prefix. Upload the contents
 of `dist/`, not the source files: the source `index.html` references a Vite development entry point.
 
+## Publishing to Meridian
+
+The workflow at `.github/workflows/deploy-meridian.yml` runs the tests, builds the site, and
+publishes `dist/` to Meridian whenever `main` is updated. It proves the repository's identity with a
+short-lived GitHub OIDC token, so the repository stores no deploy secret. Meridian accepts it only
+after an Operator registers this repository; until then the publish step fails with HTTP 403. To
+republish without a new commit, run **Deploy to Meridian** from the Actions tab. As with GitHub
+Pages, this project does not store or advertise the published URL.
+
 ## Publishing to S3
 
 The GitHub Pages workflow does not update S3. On Windows, run the deployment script from the
@@ -59,8 +68,9 @@ lookup and both local models, after publishing.
 The satellite basemap currently works without `VITE_ARCGIS_API_KEY`, but a public deployment can
 be more reliable with a referrer-restricted ArcGIS API key. Copy `.env.example` to `.env`, set the
 key before building, and keep `.env` out of version control. A client-side key is not a secret;
-limit it to the intended hosting origins and only the privileges the application needs. The GitHub
-Pages workflow does not currently inject this key; configure the build separately if one is needed.
+limit it to the intended hosting origins and only the privileges the application needs. Neither the
+GitHub Pages nor the Meridian workflow currently injects this key; configure the build separately
+if one is needed.
 
 ## Deployment check
 

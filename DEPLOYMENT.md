@@ -2,7 +2,8 @@
 
 This repository is configured to publish the static production build through GitHub Pages. The
 workflow at `.github/workflows/deploy-pages.yml` builds the site and publishes `dist/` whenever
-`main` is updated. It does not require a backend or a separate hosting configuration.
+`main` is updated. The site does not require a backend. GitHub Pages must be enabled in the
+repository settings; pushing to GitHub does not deploy to S3.
 
 ## One-time repository setup
 
@@ -16,13 +17,16 @@ or advertise that URL in its source or documentation.
 
 ## Local production check
 
+Install Node.js 22 and npm, then run:
+
 ```powershell
 npm.cmd ci
 npm.cmd run build
 ```
 
 The build produces `dist/`. Vite is configured with a relative base path, so the built assets and
-local 3D models resolve correctly from a GitHub Pages project site.
+local 3D models resolve correctly from a GitHub Pages project site or S3 prefix. Upload the contents
+of `dist/`, not the source files: the source `index.html` references a Vite development entry point.
 
 ## Publishing to S3
 
@@ -39,6 +43,10 @@ the normal AWS credential chain. If the profile uses IAM Identity Center, sign i
 `s3://esri-jhall-public/apps/frame-camera-simulator/`; pass `-Destination` with a different S3
 prefix ending in `/` to change it. Add `-WhatIf` to run the tests and build without uploading.
 
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\deploy-s3.ps1 -Profile YOUR_PROFILE -WhatIf
+```
+
 The script runs the tests and production build, uploads assets before `index.html`, and stops if a
 step fails. It does not delete old objects or change bucket permissions. The profile needs permission
 to list the destination prefix and upload objects. Ensure the site serves `index.html`, JavaScript
@@ -51,7 +59,8 @@ lookup and both local models, after publishing.
 The satellite basemap currently works without `VITE_ARCGIS_API_KEY`, but a public deployment can
 be more reliable with a referrer-restricted ArcGIS API key. Copy `.env.example` to `.env`, set the
 key before building, and keep `.env` out of version control. A client-side key is not a secret;
-limit it to the Pages domain and only the privileges the application needs.
+limit it to the intended hosting origins and only the privileges the application needs. The GitHub
+Pages workflow does not currently inject this key; configure the build separately if one is needed.
 
 ## Deployment check
 

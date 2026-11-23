@@ -72,6 +72,23 @@ Local X points east, Y north, and Z up. With default settings, the vehicle is at
 the sensor is 1.7 m forward and 5 m down, so the resolved sensor is at (0, 1.7, 115) m. These offsets
 rotate with the vehicle; changing the ground elevation changes camera height above ground, not Z.
 
+### Verifying OPK
+
+The simulator's OPK round-trip tests check internal consistency, not compatibility with Esri. To
+establish an independent reference, use an [oriented imagery table](https://doc.esri.com/en/arcgis-pro/latest/help/data/imagery/oriented-imagery-table.html)
+with an accessible image, a spatial reference, camera coordinates, and known Omega/Phi/Kappa values.
+Omit competing heading, pitch, roll, and matrix inputs, then use ArcGIS Pro's
+[Add Images To Oriented Imagery Dataset](https://doc.esri.com/en/arcgis-pro/latest/tool-reference/oriented-imagery/add-images-to-oriented-imagery-dataset.html)
+and compare the resulting camera orientations against the simulator. Include zero, positive and
+negative single-axis, and mixed-angle cases. Compare camera axes or projections after aligning the
+coordinate and image-axis conventions, since different angle triples can describe the same pose.
+The ArcGIS Pro tool requires a Standard or Advanced license.
+
+Oriented Imagery OPK verification alone does not establish compatibility with Frame Camera tables.
+Validate the Frame Camera workflow separately, including its `AngleDirection`, `Polarity`, and
+`FilmCoordinateSystem` settings, against an independent ArcGIS result. OPK remains unavailable in
+the comparison until the applicable conventions are verified.
+
 ## Inspect an oriented imagery record
 
 Open **Import Oriented Imagery Record** and paste JSON, CSV with a header row and one or more records,
@@ -107,6 +124,8 @@ For focal length and principal point values, add `FocalLengthUnit` as `mm` or `m
 this extra key is not an OID field. Pixel units and affine calibration are not supported. Missing
 supported values retain the current simulator settings. When focal length changes, sensor dimensions
 are adjusted as needed to preserve any fields of view that were not supplied.
+
+## Compare synthetic image-to-ground positions
 
 Select a point in the synthetic image view to establish a reference. After changing parameters and
 selecting **Generate**, the 3D view shows the reference ground point in white and the current point
